@@ -11,7 +11,7 @@ const ProductionChart: React.FC = () => {
     const fetchChartData = async () => {
       try {
         setLoading(true)
-        const response = await pharmaApi.getProductionChartData()
+        const response = await pharmaApi.getProductionChart()
         
         if (response.error) {
           setError(response.error)

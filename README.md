@@ -223,3 +223,5 @@ For technical support or questions about the PharmaMind AI platform:
 **Built for demonstration purposes for Eli Lilly**  
 **PharmaMind AI v2.2.4**  
 **© 2025 Karunasagar Mohansundar**
+
+
