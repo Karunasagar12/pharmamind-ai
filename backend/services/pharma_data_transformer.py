@@ -213,3 +213,26 @@ if __name__ == "__main__":
     summary = transformer.get_dashboard_summary()
     print("\n=== Dashboard Summary ===")
     print(json.dumps(summary, indent=2))
+
+# Standalone functions for pharma_api.py compatibility
+_transformer_instance = None
+
+def load_and_fix_data():
+    """Load and fix pharmaceutical data - standalone function for pharma_api.py"""
+    global _transformer_instance
+    if _transformer_instance is None:
+        _transformer_instance = PharmaDataTransformer()
+        _transformer_instance.load_pharmaceutical_data()
+    
+    return _transformer_instance.process_data, _transformer_instance.laboratory_data, _transformer_instance.normalization_data
+
+def transform_batch(process_df, lab_df, norm_df, batch_id):
+    """Transform a batch - standalone function for pharma_api.py"""
+    global _transformer_instance
+    if _transformer_instance is None:
+        _transformer_instance = PharmaDataTransformer()
+        _transformer_instance.process_data = process_df
+        _transformer_instance.laboratory_data = lab_df
+        _transformer_instance.normalization_data = norm_df
+    
+    return _transformer_instance.transform_batch_to_spruik_format(batch_id)

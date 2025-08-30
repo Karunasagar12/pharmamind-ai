@@ -8,11 +8,12 @@ import random
 from typing import List, Dict, Any
 import os
 import glob
-from simple_transformer import load_and_fix_data, transform_batch
+from backend.services.pharma_data_transformer import load_and_fix_data, transform_batch
 import google.generativeai as genai
 from PIL import Image
 import base64
 import io
+
 
 app = FastAPI(
     title="PharmaMind AI API",
@@ -43,6 +44,8 @@ try:
 except Exception as e:
     print(f"❌ Error loading data: {e}")
     process_df, lab_df, norm_df = None, None, None
+
+
 
 # Real-time Time-Series Data Management
 time_series_data = {}
@@ -214,6 +217,7 @@ async def get_dashboard_metrics():
         recent_batches.append(batch)
     
     avg_production = sum(b['current_rate'] for b in recent_batches) / len(recent_batches)
+
     
     # Fix unrealistic production rates (less than 50 tablets/min)
     if avg_production < 50:
@@ -285,6 +289,7 @@ async def get_production_chart_data():
         production_variation = random.uniform(0.9, 1.1)
         quality_variation = random.uniform(0.98, 1.02)
         
+
         # Fix unrealistic production rates for chart data
         production_value = batch['current_rate'] * production_variation
         if production_value < 50:
@@ -292,6 +297,7 @@ async def get_production_chart_data():
         
         chart_data.append({
             "time": f"{hour:02d}:00",
+
             "production": int(production_value),
             "quality": round(batch['quality_score'] * quality_variation, 1),
             "target": 3000
@@ -329,6 +335,7 @@ async def get_batches(limit: int = 10):
             "startTime": start_time.strftime("%Y-%m-%d %H:%M"),
             "estimatedEnd": estimated_end.strftime("%Y-%m-%d %H:%M"),
             "quality": round(batch['quality_score'], 1) if status != 'pending' else None,
+
             "production": int(random.uniform(150, 250) if batch['current_rate'] < 50 else batch['current_rate']) if status != 'pending' else None,
             "drug_release": round(batch['drug_release_rate'], 1),
             "compression_force": round(batch['compression_force'], 2),
@@ -347,6 +354,7 @@ async def get_quality_metrics():
     if process_df is None:
         raise HTTPException(status_code=500, detail="Pharmaceutical data not loaded")
     
+
     # Get quality metrics from recent batches
     recent_batches = []
     for i in range(20):
@@ -354,6 +362,7 @@ async def get_quality_metrics():
         batch = transform_batch(process_df, lab_df, norm_df, batch_id)
         recent_batches.append(batch)
     
+
     # Calculate quality metrics
     avg_quality = sum(b['quality_score'] for b in recent_batches) / len(recent_batches)
     avg_api_content = sum(b['api_content'] for b in recent_batches) / len(recent_batches)
@@ -669,25 +678,14 @@ async def get_realtime_production_line_metrics(line_id: int):
         print(f"⚠️ No time-series data available for production line {line_id}. Generating random data.")
         line_data = [get_current_time_series_data(0)]  # This will return random data
     
-    # Calculate real-time metrics with JSON compliance
-    def safe_calculate_avg(values):
-        """Safely calculate average with JSON compliance"""
-        valid_values = [v for v in values if v == v and v != float('inf') and v != float('-inf')]
-        if not valid_values:
-            return random.uniform(0.8, 1.2)
-        return sum(valid_values) / len(valid_values)
-    
-    avg_tbl_speed = safe_calculate_avg([d['tbl_speed'] for d in line_data])
-    avg_main_comp = safe_calculate_avg([d['main_comp'] for d in line_data])
-    avg_tbl_fill = safe_calculate_avg([d['tbl_fill'] for d in line_data])
-    avg_SREL = safe_calculate_avg([d['SREL'] for d in line_data])
+    # Calculate real-time metrics
+    avg_tbl_speed = sum(d['tbl_speed'] for d in line_data) / len(line_data)
+    avg_main_comp = sum(d['main_comp'] for d in line_data) / len(line_data)
+    avg_tbl_fill = sum(d['tbl_fill'] for d in line_data) / len(line_data)
+    avg_SREL = sum(d['SREL'] for d in line_data) / len(line_data)
     
     # Calculate quality score based on SREL and other parameters
-    # Handle zero values by using realistic defaults
-    if avg_SREL <= 0:
-        quality_score = random.uniform(95.0, 99.5)
-    else:
-        quality_score = min(100, max(0, avg_SREL * 10 + random.uniform(-2, 2)))
+    quality_score = min(100, max(0, avg_SREL * 10 + random.uniform(-2, 2)))
     
     # Calculate production rate (tablets per minute)
     production_rate = avg_tbl_speed * 60 + random.uniform(-10, 10)
@@ -697,16 +695,10 @@ async def get_realtime_production_line_metrics(line_id: int):
         production_rate = random.uniform(150, 250)
     
     # Calculate drug release rate
-    if avg_SREL <= 0:
-        drug_release_rate = random.uniform(85.0, 98.0)
-    else:
-        drug_release_rate = min(100, max(0, avg_SREL + random.uniform(-5, 5)))
+    drug_release_rate = min(100, max(0, avg_SREL + random.uniform(-5, 5)))
     
     # Calculate API content
-    if avg_main_comp <= 0:
-        api_content = random.uniform(90.0, 99.5)
-    else:
-        api_content = min(100, max(0, avg_main_comp * 10 + random.uniform(-1, 1)))
+    api_content = min(100, max(0, avg_main_comp * 10 + random.uniform(-1, 1)))
     
     # Generate trends based on recent changes
     production_trend = f"+{random.uniform(1, 8):.1f}%" if random.random() > 0.3 else f"-{random.uniform(1, 5):.1f}%"
@@ -715,6 +707,7 @@ async def get_realtime_production_line_metrics(line_id: int):
     api_content_trend = f"+{random.uniform(0.1, 1):.1f}%" if random.random() > 0.3 else f"-{random.uniform(0.1, 0.8):.1f}%"
     
     return {
+
         "line_id": line_id,
         "line_name": f"Production Line {chr(64 + line_id)}",
         "metrics": [
@@ -772,359 +765,8 @@ async def get_batch_details(batch_id: int):
         "timestamp": datetime.now().isoformat()
     }
 
-# VisionQC Computer Vision Endpoints
-@app.get("/api/visionqc/status")
-async def get_visionqc_status():
-    """Get VisionQC system status"""
-    return {
-        "system_active": True,
-        "camera_available": True,
-        "model_loaded": True,
-        "processing_speed": "sub-second",
-        "supported_objects": ["cylindrical", "pens", "bottles", "tubes", "medical_devices"],
-        "timestamp": datetime.now().isoformat()
-    }
-
-@app.post("/api/visionqc/analyze")
-async def analyze_image(file: UploadFile = File(...)):
-    """Real AI-powered image analysis using Gemini Vision API"""
-    import time
-    import math
-    
-    start_time = time.time()
-    
-    try:
-        # Validate file type
-        if not file.content_type.startswith('image/'):
-            raise HTTPException(status_code=400, detail="File must be an image")
-        
-        # Read and process the uploaded image
-        image_data = await file.read()
-        image = Image.open(io.BytesIO(image_data))
-        
-        # Convert to RGB if necessary
-        if image.mode != 'RGB':
-            image = image.convert('RGB')
-        
-        # Resize if too large (Gemini has size limits)
-        max_size = 1024
-        if max(image.size) > max_size:
-            ratio = max_size / max(image.size)
-            new_size = (int(image.size[0] * ratio), int(image.size[1] * ratio))
-            image = image.resize(new_size, Image.Resampling.LANCZOS)
-        
-        # Prepare the prompt for Gemini
-        prompt = """
-        Analyze this pharmaceutical manufacturing image as a YOLO model would:
-
-        1. **Object Detection**: Focus ONLY on cylindrical pharmaceutical objects in the foreground:
-           - Pharmaceutical vials, syringes, tubes, bottles, pens, markers
-           - Ignore faces, hands, background objects, or non-cylindrical items
-           - If no pharmaceutical object detected, return empty detections
-
-        2. **Bounding Box Coordinates**: Provide precise [x, y, width, height] coordinates
-           - x, y: top-left corner position
-           - width, height: dimensions of the bounding box
-           - Use pixel coordinates relative to image size
-
-        3. **Quality Assessment**: Evaluate each detected object:
-           - Quality: excellent/good/warning/defective
-           - Confidence: 0.0-1.0 score
-           - Specific defects and quality issues
-
-        4. **Quality Metrics**: Calculate:
-           - Overall score (0-100%)
-           - Dimensional accuracy (0-100%)
-           - Surface quality (0-100%)
-           - Structural integrity (0-100%)
-
-        5. **Recommendations**: Provide actionable insights
-
-        Return as JSON with this EXACT structure:
-        {
-          "detection": {
-            "id": "unique-id",
-            "label": "object-type",
-            "confidence": 0.95,
-            "bbox": [x, y, width, height],
-            "quality": "excellent/good/warning/defective",
-            "quality_score": 0.95,
-            "defects": ["defect1", "defect2"],
-            "dimensions": {
-              "width": 20.5,
-              "height": 100.2,
-              "aspect_ratio": 4.9,
-              "volume": 3300.5
-            },
-            "quality_factors": {
-              "surface_analysis": 0.95,
-              "dimensional_accuracy": 0.92,
-              "structural_integrity": 0.98,
-              "color_consistency": 0.94
-            },
-            "timestamp": "2024-01-01T12:00:00"
-          },
-          "all_detections": [same structure as detection],
-          "quality_metrics": {
-            "overall_score": 95.0,
-            "dimensional_accuracy": 92.0,
-            "surface_quality": 95.0,
-            "structural_integrity": 98.0,
-            "color_consistency": 94.0,
-            "defect_count": 0,
-            "total_detections": 1
-          },
-          "recommendations": [
-            "✅ Quality standards exceeded - Production approved",
-            "📈 Process parameters optimal - Maintain current settings"
-          ]
-        }
-        """
-        
-        # Call Gemini API with the uploaded image
-        response = gemini_model.generate_content([prompt, image])
-        
-        # Parse Gemini response
-        try:
-            # Extract JSON from Gemini response
-            response_text = response.text
-            # Find JSON content in the response
-            start_idx = response_text.find('{')
-            end_idx = response_text.rfind('}') + 1
-            json_str = response_text[start_idx:end_idx]
-            
-            # Parse the JSON response
-            gemini_result = json.loads(json_str)
-            
-            # Add processing time and model info
-            processing_time = time.time() - start_time
-            
-            gemini_result.update({
-                "processing_time": round(processing_time, 3),
-                "ml_model": "Gemini Pro Vision",
-                "model_version": "1.0",
-                "timestamp": datetime.now().isoformat()
-            })
-            
-            return gemini_result
-            
-        except (json.JSONDecodeError, KeyError) as e:
-            print(f"Error parsing Gemini response: {e}")
-            print(f"Raw response: {response.text}")
-            # Fallback to simulation
-            return fallback_simulation()
-            
-    except Exception as e:
-        print(f"Gemini API error: {e}")
-        # Fallback to simulation
-        return fallback_simulation()
-
-def create_test_image():
-    """Create a simple test image for Gemini analysis"""
-    # Create a simple image with a cylindrical object
-    from PIL import Image, ImageDraw
-    
-    # Create a 640x480 image with a white background
-    img = Image.new('RGB', (640, 480), color='white')
-    draw = ImageDraw.Draw(img)
-    
-    # Draw a simple cylindrical object (rectangle)
-    draw.rectangle([200, 150, 300, 350], outline='blue', fill='lightblue', width=3)
-    
-    # Add some text to make it look like a pharmaceutical object
-    draw.text((220, 160), "VIAL", fill='black')
-    
-    return img
-
-def fallback_simulation():
-    """Fallback to the original simulation if Gemini fails"""
-    import time
-    import math
-    
-    # Simulate YOLOv8 processing time (sub-second)
-    processing_time = random.uniform(0.2, 0.6)
-    time.sleep(processing_time)
-    
-    # Advanced object detection simulation
-    object_types = [
-        "Pharmaceutical Vial", "Medical Syringe", "Lab Tube", 
-        "Pill Bottle", "Injection Pen", "Test Tube"
-    ]
-    
-    # Simulate multiple detections with varying confidence
-    detections = []
-    num_objects = random.randint(1, 3)
-    
-    for i in range(num_objects):
-        # YOLOv8-style confidence scoring
-        base_confidence = random.uniform(0.82, 0.98)
-        # Add noise to simulate real ML uncertainty
-        confidence = min(0.99, base_confidence + random.uniform(-0.05, 0.05))
-        
-        # Advanced quality assessment algorithm
-        quality_factors = {
-            'surface_analysis': random.uniform(0.7, 1.0),
-            'dimensional_accuracy': random.uniform(0.8, 1.0),
-            'structural_integrity': random.uniform(0.75, 1.0),
-            'color_consistency': random.uniform(0.8, 1.0)
-        }
-        
-        # Calculate overall quality score using weighted average
-        quality_score = (
-            quality_factors['surface_analysis'] * 0.3 +
-            quality_factors['dimensional_accuracy'] * 0.25 +
-            quality_factors['structural_integrity'] * 0.25 +
-            quality_factors['color_consistency'] * 0.2
-        )
-        
-        # Determine quality category based on score
-        if quality_score >= 0.95:
-            quality = 'excellent'
-        elif quality_score >= 0.85:
-            quality = 'good'
-        elif quality_score >= 0.70:
-            quality = 'warning'
-        else:
-            quality = 'defective'
-        
-        # Advanced defect detection
-        defects = []
-        if quality in ['warning', 'defective']:
-            defect_categories = {
-                'surface': [
-                    'Surface roughness exceeds tolerance (Ra > 0.8μm)',
-                    'Microscopic scratches detected',
-                    'Surface contamination identified',
-                    'Finish inconsistency observed'
-                ],
-                'dimensional': [
-                    'Diameter variation: ±0.15mm (tolerance: ±0.05mm)',
-                    'Height deviation: +0.2mm from specification',
-                    'Wall thickness non-uniformity detected',
-                    'Roundness error: 0.08mm (max: 0.03mm)'
-                ],
-                'structural': [
-                    'Stress concentration detected at neck region',
-                    'Material density variation observed',
-                    'Micro-crack initiation point identified',
-                    'Structural deformation beyond limits'
-                ]
-            }
-            
-            # Select defects based on quality score
-            num_defects = max(1, int((1 - quality_score) * 3))
-            all_defects = []
-            for category in defect_categories.values():
-                all_defects.extend(category)
-            
-            defects = random.sample(all_defects, min(num_defects, len(all_defects)))
-        
-        # Precise dimensional analysis
-        base_width = random.uniform(18, 22)
-        base_height = random.uniform(90, 110)
-        
-        # Add manufacturing tolerances
-        width = base_width + random.uniform(-0.1, 0.1)
-        height = base_height + random.uniform(-0.2, 0.2)
-        aspect_ratio = height / width
-        
-        # YOLOv8-style bounding box with confidence
-        bbox_x = random.uniform(50, 400)
-        bbox_y = random.uniform(50, 300)
-        bbox_width = width * 3  # Scale factor for display
-        bbox_height = height * 3
-        
-        detection = {
-            "id": f"fallback-detection-{int(time.time())}-{i}",
-            "label": random.choice(object_types),
-            "confidence": confidence,
-            "bbox": [int(bbox_x), int(bbox_y), int(bbox_width), int(bbox_height)],
-            "quality": quality,
-            "quality_score": quality_score,
-            "defects": defects,
-            "dimensions": {
-                "width": round(width, 2),
-                "height": round(height, 2),
-                "aspect_ratio": round(aspect_ratio, 2),
-                "volume": round(math.pi * (width/2)**2 * height, 2)
-            },
-            "quality_factors": quality_factors,
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        detections.append(detection)
-    
-    # Select the best detection for primary result
-    primary_detection = max(detections, key=lambda x: x['confidence'])
-    
-    # Advanced quality metrics
-    quality_metrics = {
-        "overall_score": round(primary_detection['quality_score'] * 100, 1),
-        "dimensional_accuracy": round(primary_detection['quality_factors']['dimensional_accuracy'] * 100, 1),
-        "surface_quality": round(primary_detection['quality_factors']['surface_analysis'] * 100, 1),
-        "structural_integrity": round(primary_detection['quality_factors']['structural_integrity'] * 100, 1),
-        "color_consistency": round(primary_detection['quality_factors']['color_consistency'] * 100, 1),
-        "defect_count": len(primary_detection['defects']),
-        "total_detections": len(detections)
-    }
-    
-    # AI-powered recommendations
-    recommendations = []
-    if primary_detection['quality'] in ['excellent', 'good']:
-        recommendations.extend([
-            "✅ Quality standards exceeded - Production approved",
-            "📈 Process parameters optimal - Maintain current settings",
-            "🔍 Continue monitoring for consistency"
-        ])
-    elif primary_detection['quality'] == 'warning':
-        recommendations.extend([
-            "⚠️ Quality threshold approaching limits",
-            "🔧 Review manufacturing parameters",
-            "📊 Increase sampling frequency for this batch"
-        ])
-    else:  # defective
-        recommendations.extend([
-            "❌ Quality standards not met - Production halted",
-            "🔍 Immediate investigation required",
-            "🛠️ Equipment calibration recommended",
-            "📋 Root cause analysis needed"
-        ])
-    
-    return {
-        "detection": primary_detection,
-        "all_detections": detections,
-        "quality_metrics": quality_metrics,
-        "recommendations": recommendations,
-        "processing_time": round(processing_time, 3),
-        "ml_model": "Fallback Simulation",
-        "model_version": "1.0",
-        "timestamp": datetime.now().isoformat()
-    }
-
-@app.get("/api/visionqc/history")
-async def get_visionqc_history():
-    """Get VisionQC analysis history"""
-    # Generate mock history data
-    history = []
-    for i in range(10):
-        quality = random.choice(['excellent', 'good', 'warning', 'defective'])
-        history.append({
-            "id": f"analysis-{i+1}",
-            "timestamp": (datetime.now() - timedelta(minutes=i*5)).isoformat(),
-            "object_type": "Cylindrical Object",
-            "quality": quality,
-            "confidence": random.uniform(0.75, 0.95),
-            "defect_count": random.randint(0, 3),
-            "processing_time": random.uniform(0.3, 0.8)
-        })
-    
-    return {
-        "history": history,
-        "total_analyses": len(history),
-        "success_rate": random.uniform(85, 98),
-        "timestamp": datetime.now().isoformat()
-    }
-
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+

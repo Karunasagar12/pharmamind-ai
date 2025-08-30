@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:8000/api'
+const API_BASE_URL = 'https://pharmamind-api-713737165318.us-central1.run.app/api'
 
 export interface VisionQCStatus {
   system_active: boolean
