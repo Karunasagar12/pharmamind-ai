@@ -12,7 +12,6 @@ __pycache__/
 .Python
 build/
 develop-eggs/
-dist/
 downloads/
 eggs/
 .eggs/
@@ -102,11 +101,9 @@ jspm_packages/
 
 # Nuxt.js build / generate output
 .nuxt
-dist
 
 # Gatsby files
 .cache/
-public
 
 # Storybook build outputs
 .out
@@ -140,10 +137,6 @@ temp/
 secrets.json
 config.json
 
-# Large data files (if not needed for demo)
-data/raw/*.csv
-data/processed/*.csv
-
 # Test files (if not needed for demo)
 test_*.py
 *_test.py
@@ -155,36 +148,11 @@ debug_*.py
 *.bak
 *.backup
 
-# Temporary image files (if not needed for demo)
-*.jpg
-*.jpeg
-*.png
-*.gif
-*.bmp
-*.tiff
-*.ico
-
-# Keep specific demo images
-!public/profile-image.jpg
-!public/pharma-icon.svg
-!humalog_pen.png
-
-# Documentation that might contain sensitive info
-*.md
-!README.md
-!MILESTONE_PLAN.md
-!ACCOMPLISHED_SUMMARY.md
-!CONTRIBUTING.md
-
-# Project state files (if they contain sensitive data)
-PROJECT_STATE.json
-
 # Deployment files
 deployment/
 
 # Build artifacts
 build/
-dist/
 
 # Environment files
 .env
